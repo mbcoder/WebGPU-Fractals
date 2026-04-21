@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGPU Mandelbrot</title>
+    <style>
+        table {
+            width: 50%;
+            border-collapse: collapse;
+            margin: 10px;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #userInputForm {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #userInputForm label {
+            margin: 2px;
+        }
+        
+        #userInputForm button {
+            margin: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div style="display: flex;">
+        <table>
+            <tr>
+                <th>imgSize (w * h)</th>
+                <th>dataSize (kb)</th>
+                <th>fps</th>
+                <th>computeTime</th>
+                <th>dataSum</th>
+            </tr>
+            <tr>
+                <td id="imgSize"></td>
+                <td id="dataSize"></td>
+                <td id="fps"></td>
+                <td id="computeTime"></td>
+                <td id="data"></td>
+            </tr>
+        </table>
+        
+        <div id="userInputForm">
+            <label>
+                Width:
+                <input type="number" step="10" id="w" onkeyup="onUpdateWidth()" onchange="onUpdateWidth()" />
+            </label>
+            <label>
+                Height:
+                <input type="number" step="10" id="h" onkeyup="onUpdateHeight()" onchange="onUpdateHeight()"/>
+            </label>
+            <label>
+                Center.re:
+                <input type="number" step="0.01" id="centerRe" onkeyup="onUpdateCenterReal()" onchange="onUpdateCenterReal()"/>
+            </label>
+            <label>
+                Center.im:
+                <input type="number" step="0.01" id="centerIm" onkeyup="onUpdateCenterImagine()" onchange="onUpdateCenterImagine()"/>
+            </label>
+            <button onclick="initUserInput()">reset</button>
+        </div >
+    </div>
+    <canvas id="mandelbrotCanvas" width="1024" height="1024"></canvas>
+    <script src="ui.js"></script>
+    <script src="gpu.js"></script>
+    <script src="main.js"></script>
+
+</body>
+</html>
