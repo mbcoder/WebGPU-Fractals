@@ -60,6 +60,7 @@
         </table>
         
         <div id="userInputForm">
+            <!--
             <label>
                 Width:
                 <input type="number" step="10" id="w" onkeyup="onUpdateWidth()" onchange="onUpdateWidth()" />
@@ -68,6 +69,7 @@
                 Height:
                 <input type="number" step="10" id="h" onkeyup="onUpdateHeight()" onchange="onUpdateHeight()"/>
             </label>
+              
             <label>
                 Center.re:
                 <input type="number" step="0.01" id="centerRe" onkeyup="onUpdateCenterReal()" onchange="onUpdateCenterReal()"/>
@@ -77,10 +79,10 @@
                 <input type="number" step="0.01" id="centerIm" onkeyup="onUpdateCenterImagine()" onchange="onUpdateCenterImagine()"/>
             </label>
             <button onclick="initUserInput()">reset</button>
+            -->
         </div >
     </div>
     <canvas id="mandelbrotCanvas" width="1024" height="1024"></canvas>
-    <script src="ui.js"></script>
     <script src="gpu.js"></script>
     <script src="main.js"></script>
 

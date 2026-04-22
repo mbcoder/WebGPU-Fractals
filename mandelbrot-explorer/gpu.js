@@ -49,11 +49,6 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
         imax: f32,
       };
   
-      struct VertexOutput {
-        @builtin(position) position: vec4f,
-        @location(0) cell: vec2f,
-      };
-  
       // data binding
       @group(0) @binding(0) var<storage, read_write> cellStateOut: array<u32>;
       @group(0) @binding(1) var<uniform> unif: Mandelbrot_uniforms;
@@ -116,15 +111,14 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
       // main stuff
       @compute @workgroup_size(${WORKGROUP_SIZE}, ${WORKGROUP_SIZE}, 1)
       fn computeMain(@builtin(global_invocation_id) id: vec3<u32>) {
-        let h = id.x;
-        let w = id.y;
-        let i = cellIndex(id.xy);
+        let ypos = id.y;
+        let xpos = id.x;
+        let index = cellIndex(id.xy);
         
-        
-        let re = (f32(w) / f32(unif.width)) * (unif.rmax - unif.rmin) + unif.rmin;
-        let im = (f32(unif.height - h) / f32(unif.height)) * (unif.imax - unif.imin) + unif.imin;
+        let re = (f32(xpos) / f32(unif.width)) * (unif.rmax - unif.rmin) + unif.rmin;
+        let im = (f32(unif.height - ypos) / f32(unif.height)) * (unif.imax - unif.imin) + unif.imin;
         let col = mandelbrot_colorize(mandelbrot_for_point(Complex(re, im), unif.max_iterations), unif.max_iterations, unif.max_intensity);        
-        cellStateOut[i] = pack4xU8(vec4<u32>(0, col, col, u32(unif.max_intensity)));
+        cellStateOut[index] = pack4xU8(vec4<u32>(0, col, col, u32(unif.max_intensity)));
         
       }
   
@@ -178,7 +172,7 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
   });
 
 
-  // Create uniform buffer for mandelbrot.
+  // Create uniform buffer for Mandelbrot.
   const mandelbrotUniformArray = new ArrayBuffer(8 * 4); // malloc 8 * 4 byte (must match with the layout defined in the shader)
   const mandelbrotUniformView = {
     u32Section: new Uint32Array(mandelbrotUniformArray, 0, 4),
@@ -204,8 +198,7 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
     label: "Cell State Storage",
     size: cellStateArray.byteLength,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
-  })
-    ;
+  });
 
   device.queue.writeBuffer(cellStateStorage, 0, cellStateArray);
 

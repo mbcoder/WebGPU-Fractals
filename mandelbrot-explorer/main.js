@@ -2,17 +2,19 @@
 async function main() {
   console.log("main started!");
   const DEVICE = await initGPUDevice();
-  const C_SCALE_FACTOR = 0.98;
+  const C_SCALE_FACTOR = 0.99;
 
+  let centre_re = -0.348426337841269;
+  let centre_im = -0.606539402343932;
   let scale_factor = C_SCALE_FACTOR;
   let scale = 1.0;
 
   async function updateMandelBrot() {
-    const w = g_userInput.w
-    const h = g_userInput.h
+    const w = 1024
+    const h = 1024
     const mandelbrot_center = {
-      re: g_userInput.center.re,
-      im: g_userInput.center.im
+      re: centre_re,
+      im: centre_im
     }
     const rmin = mandelbrot_center.re - scale;
     const imin = mandelbrot_center.im - scale;
@@ -49,18 +51,54 @@ async function main() {
     document.getElementById('data').innerText = `${sum}`;
 
 
-    if (scale > 1.0) {
-      scale_factor = C_SCALE_FACTOR;
-    }
-    else if (scale < 0.00001) {
-      scale_factor = 1.0 / C_SCALE_FACTOR;
-    }
-    scale *= scale_factor;
+    //if (scale > 1.0) {
+    //  scale_factor = C_SCALE_FACTOR;
+    //}
+    //else if (scale < 0.00001) {
+    //  scale_factor = 1.0 / C_SCALE_FACTOR;
+    //}
+    //scale *= scale_factor;
 
 
-    window.requestAnimationFrame(updateMandelBrot);
+    //window.requestAnimationFrame(updateMandelBrot);
 
   }
+
+  //listen to mouse events on the canvas
+  let canvas = document.getElementById('mandelbrotCanvas');
+
+  canvas.addEventListener('mousemove', function (event) {      
+
+      //if (event.button == 0) {
+      //  console.log('move with mouse pressed')
+      //  console.log(event);
+      //}
+      
+      //updateMandelBrot();
+  });
+
+  // 
+  // Zooming in and out and generating new canvas image
+  //
+  canvas.addEventListener('wheel', function (event) {
+      let scroll_coefficient = 1.0;
+      // identify if is a big wheel move or a small one
+      if (Math.abs(event.deltaY) > 300) {
+        scroll_coefficient = 0.9;
+      }
+
+
+      if (event.deltaY > 0) {
+        //zoom in
+        scale_factor = C_SCALE_FACTOR * scroll_coefficient;
+      } else {
+        //zoom out
+        scale_factor = 1.0 / (C_SCALE_FACTOR * scroll_coefficient);
+      }
+      scale *= scale_factor;
+      window.requestAnimationFrame(updateMandelBrot);
+  });
+
   updateMandelBrot();
 }
 
