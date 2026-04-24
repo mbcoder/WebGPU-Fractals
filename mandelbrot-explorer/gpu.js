@@ -1,9 +1,23 @@
+const MAX_ITERATIONS = 5000;
+const MAX_INTENSITY = 255;
+const WORKGROUP_SIZE = 8;
+
+let mandelbrotShaderModule = null;
+let mandelbrotUniformView = null;
+let mandelbrotUniformBuffer = null;
+let mandelbrotUniformArray = null;
+let cellStateStorage = null;
+let resultBuffer = null;
+let computePipeline = null;
+let bindGroup = null;
+
 function fail(msg) {
   alert(msg);
 }
 
-async function initGPUDevice() {
+async function initGPUDevice(w, h) {
   // WebGPU device initialization
+  console.log('creating device');
   if (!navigator.gpu) {
     fail("WebGPU not supported on this browser.");
   }
@@ -14,22 +28,20 @@ async function initGPUDevice() {
   }
 
   const device = await adapter.requestDevice();
+
+  // create the shader module
+  initShaderModule(device);
+
+  // create the compute pipeline
+  initComputePipeline(device, w, h);
+
   return device
 }
 
-async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
-  // check to see if we've already got a WebGPU device
-  if (!device) {
-    device = await initGPUDevice();
-  }
-
-  const MAX_ITERATIONS = 10000;
-  const MAX_INTENSITY = 255;
-  const WORKGROUP_SIZE = 8;
-
+async function initShaderModule(device) {
   // WGSL compute shader for generating the Mandelbrot
-  const cellShaderModule = device.createShaderModule({
-    label: "Cell shader",
+  mandelbrotShaderModule = device.createShaderModule({
+    label: "Mandelbrot shader",
     code: `
       // data structure
   
@@ -86,7 +98,7 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
       }
   
       fn mandelbrot_colorize(num_iterations: u32, max_iterations: u32, max_intensity: u32) -> u32 {
-        var col = u32(0);
+        var col = u32(0); // black for over max_iterations
         if (num_iterations < max_iterations)
         {
           col = u32(floor(sqrt(f32(num_iterations) / f32(max_iterations)) * f32(max_intensity)));
@@ -137,10 +149,15 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
       }
     `
   });
+}
 
+//
+// Create the compute pipeline and related resources (buffers, bind groups, etc).
+//
+async function initComputePipeline(device, w, h) {
   // Create the bind group layout and pipeline layout.
   const bindGroupLayout = device.createBindGroupLayout({
-    label: "Cell Bind Group Layout",
+    label: "CBind Group Layout",
     entries: [
       {
         binding: 0,
@@ -156,16 +173,16 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
   });
 
   const pipelineLayout = device.createPipelineLayout({
-    label: "Cell Pipeline Layout",
+    label: "Pipeline Layout",
     bindGroupLayouts: [bindGroupLayout],
   });
 
-  // Create a compute pipeline that updates the game state.
-  const computePipeline = device.createComputePipeline({
+  // Create a compute pipeline.
+  computePipeline = device.createComputePipeline({
     label: "Compute pipeline",
     layout: pipelineLayout,
     compute: {
-      module: cellShaderModule,
+      module: mandelbrotShaderModule,
       entryPoint: "computeMain",
       // entryPoint: "computeDebug",
     }
@@ -173,28 +190,23 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
 
 
   // Create uniform buffer for Mandelbrot.
-  const mandelbrotUniformArray = new ArrayBuffer(8 * 4); // malloc 8 * 4 byte (must match with the layout defined in the shader)
-  const mandelbrotUniformView = {
+  mandelbrotUniformArray = new ArrayBuffer(8 * 4); // malloc 8 * 4 byte (must match with the layout defined in the shader)
+  mandelbrotUniformView = {
     u32Section: new Uint32Array(mandelbrotUniformArray, 0, 4),
     f32Section: new Float32Array(mandelbrotUniformArray, 16, 4),
   };
 
-  mandelbrotUniformView.u32Section.set([w, h, MAX_ITERATIONS, MAX_INTENSITY]);
-  mandelbrotUniformView.f32Section.set([rmin, imin, rmax, imax]);
-
-  const mandelbrotUniformBuffer = device.createBuffer({
+  mandelbrotUniformBuffer = device.createBuffer({
     label: "Mandelbrot Uniforms",
     size: mandelbrotUniformArray.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(mandelbrotUniformBuffer, 0, mandelbrotUniformArray);
-
 
   // Create an array representing the active state of each cell.
   const cellStateArray = new Uint32Array(w * h);
 
   // Create two storage buffers to hold the cell state.
-  const cellStateStorage = device.createBuffer({
+  cellStateStorage = device.createBuffer({
     label: "Cell State Storage",
     size: cellStateArray.byteLength,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
@@ -202,7 +214,7 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
 
   device.queue.writeBuffer(cellStateStorage, 0, cellStateArray);
 
-  const resultBuffer = device.createBuffer({
+  resultBuffer = device.createBuffer({
     label: 'Result buffer',
     size: cellStateArray.byteLength,
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
@@ -210,7 +222,7 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
 
 
   // Create a bind group to pass the grid uniforms into the pipeline
-  const bindGroup = device.createBindGroup({
+  bindGroup = device.createBindGroup({
     label: "Bind group",
     layout: bindGroupLayout,
     entries: [
@@ -224,8 +236,16 @@ async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device = null) {
       }
     ],
   })
+}
+
+async function computeMandelBrot(w, h, rmin, imin, rmax, imax, device) {
 
   const encoder = device.createCommandEncoder();
+
+  // populate the CPU memory for the uniform buffer and write it to the GPU
+  mandelbrotUniformView.u32Section.set([w, h, MAX_ITERATIONS, MAX_INTENSITY]);
+  mandelbrotUniformView.f32Section.set([rmin, imin, rmax, imax]);
+  device.queue.writeBuffer(mandelbrotUniformBuffer, 0, mandelbrotUniformArray);
 
   // Start a compute pass
   const computePass = encoder.beginComputePass();

@@ -1,8 +1,9 @@
 
 async function main() {
-  console.log("main started!");
-  const DEVICE = await initGPUDevice();
-  const C_SCALE_FACTOR = 0.99;
+  const w = 1024
+  const h = 1024
+  const DEVICE = await initGPUDevice(w, h);
+  const C_SCALE_FACTOR = 0.9;
 
   let centre_re = -0.348426337841269;
   let centre_im = -0.606539402343932;
@@ -10,8 +11,6 @@ async function main() {
   let scale = 1.0;
 
   async function updateMandelBrot() {
-    const w = 1024
-    const h = 1024
     const mandelbrot_center = {
       re: centre_re,
       im: centre_im
@@ -31,73 +30,85 @@ async function main() {
     const sum = result.reduce((v0, v1) => {
       return v0 + v1;
     }, 0);
-    
+
     let canvas = document.querySelector("canvas");
-    
-    if (canvas) { 
+
+    if (canvas) {
       const ctx = canvas.getContext("2d");
-      if (!ctx) { 
-        alert("no ctx, canvas.getContext('2d') failed") 
+      if (!ctx) {
+        alert("no ctx, canvas.getContext('2d') failed")
       }
       const src = new Uint8ClampedArray(result.buffer);
       const imgData = new ImageData(src, w, h);
       ctx.putImageData(imgData, 0, 0);
     }
 
-    document.getElementById('imgSize').innerText = `${w} * ${h}`;
-    document.getElementById('dataSize').innerText = `${(result.byteLength / 1000).toFixed(2)}`;
+    // display the performance metrics
     document.getElementById('fps').innerText = `${fps.toFixed(0)}`;
     document.getElementById('computeTime').innerText = `${compTime.toFixed(2)} ms`;
-    document.getElementById('data').innerText = `${sum}`;
-
-
-    //if (scale > 1.0) {
-    //  scale_factor = C_SCALE_FACTOR;
-    //}
-    //else if (scale < 0.00001) {
-    //  scale_factor = 1.0 / C_SCALE_FACTOR;
-    //}
-    //scale *= scale_factor;
-
-
-    //window.requestAnimationFrame(updateMandelBrot);
-
   }
 
-  //listen to mouse events on the canvas
-  let canvas = document.getElementById('mandelbrotCanvas');
 
-  canvas.addEventListener('mousemove', function (event) {      
+  const buttons = document.querySelectorAll("button");
 
-      //if (event.button == 0) {
-      //  console.log('move with mouse pressed')
-      //  console.log(event);
-      //}
-      
-      //updateMandelBrot();
+  function handleInput(direction) {
+    switch(direction) {
+      case "up": 
+        centre_im = centre_im + (scale / 50);
+        break;
+      case "down":
+        centre_im = centre_im - (scale / 50);
+        break;
+      case "left":
+        centre_re = centre_re - (scale / 50);
+        break;
+      case "right":
+        centre_re = centre_re + (scale / 50);
+        break;
+      case "in":
+        scale_factor = C_SCALE_FACTOR;
+        scale *= scale_factor;
+        break;
+      case "out":
+        scale_factor = 1.0 / C_SCALE_FACTOR;
+        scale *= scale_factor;
+        break;
+    }
+
+    window.requestAnimationFrame(updateMandelBrot);
+  }
+
+  buttons.forEach(button => {
+    const dir = button.dataset.dir;
+
+    // Mouse / Touch
+    button.addEventListener("mousedown", () => handleInput(dir));
+    button.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      handleInput(dir);
+    });
   });
 
-  // 
-  // Zooming in and out and generating new canvas image
-  //
-  canvas.addEventListener('wheel', function (event) {
-      let scroll_coefficient = 1.0;
-      // identify if is a big wheel move or a small one
-      if (Math.abs(event.deltaY) > 300) {
-        scroll_coefficient = 0.9;
-      }
+  // Keyboard support
+  document.addEventListener("keydown", (e) => {
+    const map = {
+      ArrowUp: "up",
+      ArrowDown: "down",
+      ArrowLeft: "left",
+      ArrowRight: "right",
+      w: "up",
+      s: "down",
+      a: "left",
+      d: "right",
+      '=': "in",
+      '-': "out",
+    };
 
-
-      if (event.deltaY > 0) {
-        //zoom in
-        scale_factor = C_SCALE_FACTOR * scroll_coefficient;
-      } else {
-        //zoom out
-        scale_factor = 1.0 / (C_SCALE_FACTOR * scroll_coefficient);
-      }
-      scale *= scale_factor;
-      window.requestAnimationFrame(updateMandelBrot);
+    if (map[e.key]) {
+      handleInput(map[e.key]);
+    }
   });
+
 
   updateMandelBrot();
 }
